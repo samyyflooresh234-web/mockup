@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Mockup de Boletos</title>
+
+<style>
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background: #ffffff;
+  text-align: center;
+}
+
+h1 {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+input, button {
+  margin: 8px 0;
+}
+
+#export-area {
+  position: relative;
+  width: 360px;
+  height: 600px;
+  margin: 25px auto;
+  overflow: hidden;
+  border-radius: 14px;
+  background: white;
+}
+
+/* Fondo */
+#background {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-color: white;
+  z-index: 0;
+}
+
+/* Contenedor boletos */
+#mockup {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+}
+
+/* Boletos */
+.ticket {
+  position: absolute;
+  width: 90%;
+  left: 5%;
+  height: 90px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow:
+    0 12px 25px rgba(0,0,0,0.22),
+    0 4px 10px rgba(0,0,0,0.18);
+  overflow: hidden;
+}
+
+.ticket img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Escalonado */
+.ticket:nth-child(1){ top:40px;  transform:rotate(-6deg); z-index:5;}
+.ticket:nth-child(2){ top:120px; transform:rotate(-3deg); z-index:4;}
+.ticket:nth-child(3){ top:200px; transform:rotate(0deg);  z-index:3;}
+.ticket:nth-child(4){ top:280px; transform:rotate(3deg);  z-index:2;}
+.ticket:nth-child(5){ top:360px; transform:rotate(6deg);  z-index:1;}
+
+button {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #000;
+  color: #fff;
+  font-size: 14px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Generador de Mockup de Boletos</h1>
+
+<p>Sube hasta 5 boletos</p>
+<input type="file" accept="image/*" multiple onchange="loadTickets(event)">
+
+<p>Imagen de fondo</p>
+<input type="file" accept="image/*" onchange="loadBackground(event)">
+
+<p>Opacidad del fondo</p>
+<input type="range" min="0" max="100" value="100" onchange="setOpacity(this.value)">
+
+<p>Blur del fondo</p>
+<input type="range" min="0" max="20" value="0" onchange="setBlur(this.value)">
+
+<div id="export-area">
+  <div id="background"></div>
+  <div id="mockup"></div>
+</div>
+
+<button onclick="openImage()">Ver imagen final (guardar)</button>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<script>
+const mockup = document.getElementById("mockup");
+const bg = document.getElementById("background");
+
+function loadTickets(e){
+  mockup.innerHTML = "";
+  [...e.target.files].slice(0,5).forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      const div = document.createElement("div");
+      div.className = "ticket";
+      div.innerHTML = `<img src="${ev.target.result}">`;
+      mockup.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadBackground(e){
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    bg.style.backgroundImage = `url(${ev.target.result})`;
+  };
+  reader.readAsDataURL(e.target.files[0]);
+}
+
+function setOpacity(val){
+  bg.style.opacity = val / 100;
+}
+
+function setBlur(val){
+  bg.style.filter = `blur(${val}px)`;
+}
+
+/* MÉTODO CORRECTO PARA iOS */
+function openImage(){
+  html2canvas(document.getElementById("export-area"), {
+    scale: 3,
+    backgroundColor: "#ffffff"
+  }).then(canvas=>{
+    const win = window.open();
+    win.document.body.style.margin = "0";
+    win.document.body.appendChild(canvas);
+  });
+}
+</script>
+
+</body>
+</html>
