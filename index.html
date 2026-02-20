@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup Boletos</title>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<style>
+:root{
+  --shadow-r:0;
+  --shadow-g:0;
+  --shadow-b:0;
+  --shadow-strength:35;
+  --shadow-blur:40;
+}
+
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+  background:#f2f2f2;
+}
+
+.controls{
+  padding:16px;
+  background:#fff;
+}
+
+label{
+  display:block;
+  margin-top:14px;
+  font-weight:600;
+}
+
+input,select,button{
+  width:100%;
+}
+
+button{
+  margin-top:18px;
+  padding:14px;
+  font-size:16px;
+  background:#000;
+  color:#fff;
+  border:none;
+  border-radius:12px;
+}
+
+#canvasWrapper{
+  display:flex;
+  justify-content:center;
+  padding:20px;
+}
+
+#canvas{
+  position:relative;
+  overflow:hidden;
+  border-radius:26px;
+}
+
+/* FORMATOS */
+.square{width:360px;height:360px;}
+.story{width:360px;height:640px;}
+.wide{width:360px;height:114px;}
+
+/* FONDO */
+#bg{
+  position:absolute;
+  inset:0;
+  background-size:cover;
+  background-position:center;
+  z-index:0;
+}
+
+/* CAPA INTERMEDIA */
+#overlay{
+  position:absolute;
+  inset:0;
+  background:#fff;
+  opacity:0;
+  z-index:1;
+}
+
+/* BOLETOS */
+.ticket{
+  position:absolute;
+  left:50%;
+  width:82%;
+  aspect-ratio:3.2/1;
+  border-radius:14px;
+  background-size:cover;
+  background-position:center;
+  transform-origin:center;
+  z-index:2;
+
+  /* SOMBRA REAL 3D */
+  box-shadow:
+    0 calc(var(--shadow-strength) * 0.6px)
+    var(--shadow-blur)px
+    rgba(
+      var(--shadow-r),
+      var(--shadow-g),
+      var(--shadow-b),
+      0.45
+    );
+}
+</style>
+</head>
+
+<body>
+
+<div class="controls">
+<label>Formato</label>
+<select id="format">
+  <option value="square">1:1</option>
+  <option value="story">Historia Instagram</option>
+  <option value="wide">19:6</option>
+</select>
+
+<label>Fondo</label>
+<input type="file" id="bgInput" accept="image/*">
+
+<label>Blur del fondo</label>
+<input type="range" id="bgBlur" min="0" max="20" value="0">
+
+<label>Capa intermedia (blanco ↔ negro)</label>
+<input type="range" id="overlayTone" min="0" max="1" step="0.01" value="0">
+
+<label>Opacidad capa intermedia</label>
+<input type="range" id="overlayOpacity" min="0" max="1" step="0.01" value="0">
+
+<label>Color de sombra</label>
+<input type="color" id="shadowColor" value="#000000">
+
+<label>Fuerza sombra</label>
+<input type="range" id="shadowStrength" min="5" max="80" value="35">
+
+<label>Radio sombra (difuminado)</label>
+<input type="range" id="shadowBlur" min="10" max="120" value="40">
+
+<label>Boletos (máx 5)</label>
+<input type="file" id="ticketsInput" accept="image/*" multiple>
+
+<label>Separación entre boletos</label>
+<input type="range" id="spread" min="0" max="80" value="30">
+
+<div id="sliders"></div>
+
+<button onclick="exportImage()">Exportar imagen</button>
+</div>
+
+<div id="canvasWrapper">
+  <div id="canvas" class="square">
+    <div id="bg"></div>
+    <div id="overlay"></div>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById("canvas");
+const bg=document.getElementById("bg");
+const overlay=document.getElementById("overlay");
+const sliders=document.getElementById("sliders");
+const spreadInput=document.getElementById("spread");
+
+const rotations=[-6,-3,0,3,6];
+const yIndex=[-2,-1,0,1,2];
+let tickets=[];
+
+document.getElementById("format").onchange=e=>{
+  canvas.className=e.target.value;
+};
+
+document.getElementById("bgInput").onchange=e=>{
+  const f=e.target.files[0];
+  if(f) bg.style.backgroundImage=`url(${URL.createObjectURL(f)})`;
+};
+
+document.getElementById("bgBlur").oninput=e=>{
+  bg.style.filter=`blur(${e.target.value}px)`;
+};
+
+document.getElementById("overlayTone").oninput=e=>{
+  const c=Math.round(255*e.target.value);
+  overlay.style.background=`rgb(${c},${c},${c})`;
+};
+
+document.getElementById("overlayOpacity").oninput=e=>{
+  overlay.style.opacity=e.target.value;
+};
+
+document.getElementById("shadowColor").oninput=e=>{
+  const rgb=e.target.value.match(/\w\w/g).map(v=>parseInt(v,16));
+  document.documentElement.style.setProperty("--shadow-r",rgb[0]);
+  document.documentElement.style.setProperty("--shadow-g",rgb[1]);
+  document.documentElement.style.setProperty("--shadow-b",rgb[2]);
+};
+
+document.getElementById("shadowStrength").oninput=e=>{
+  document.documentElement.style.setProperty("--shadow-strength",e.target.value);
+};
+
+document.getElementById("shadowBlur").oninput=e=>{
+  document.documentElement.style.setProperty("--shadow-blur",e.target.value);
+};
+
+document.getElementById("ticketsInput").onchange=e=>{
+  tickets.forEach(t=>t.remove());
+  tickets=[];
+  sliders.innerHTML="";
+
+  [...e.target.files].slice(0,5).forEach((file,i)=>{
+    const t=document.createElement("div");
+    t.className="ticket";
+    t.style.backgroundImage=`url(${URL.createObjectURL(file)})`;
+    t.dataset.x=0;
+    canvas.appendChild(t);
+    tickets.push(t);
+
+    const lbl=document.createElement("label");
+    lbl.textContent=`Boleto ${i+1} (X)`;
+    const r=document.createElement("input");
+    r.type="range";
+    r.min=-140;
+    r.max=140;
+    r.value=0;
+    r.oninput=ev=>{
+      t.dataset.x=ev.target.value;
+      updateLayout();
+    };
+    sliders.appendChild(lbl);
+    sliders.appendChild(r);
+  });
+  updateLayout();
+};
+
+spreadInput.oninput=updateLayout;
+
+function updateLayout(){
+  const spread=parseInt(spreadInput.value);
+  const centerY=canvas.clientHeight/2;
+  tickets.forEach((t,i)=>{
+    const x=parseInt(t.dataset.x)||0;
+    const y=yIndex[i]*spread;
+    t.style.top=`${centerY}px`;
+    t.style.transform=
+      `translate(-50%, -50%)
+       translate(${x}px, ${y}px)
+       rotate(${rotations[i]}deg)`;
+    t.style.zIndex=10+i;
+  });
+}
+
+function exportImage(){
+  html2canvas(canvas,{scale:3}).then(c=>{
+    const a=document.createElement("a");
+    a.href=c.toDataURL("image/png");
+    a.download="mockup.png";
+    a.click();
+  });
+}
+</script>
+
+</body>
+</html>
